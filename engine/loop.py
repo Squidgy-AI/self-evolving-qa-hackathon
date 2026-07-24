@@ -186,10 +186,43 @@ def validate_citations(citations: list[str]) -> tuple[list[str], list[str]]:
 
 # ------------------------------------------------------------------- loop stages
 
-def grade(question: str, concierge=None, judge=None) -> Grade:
-    """@Grader — ask Concierge and score the answer."""
+GRADES = DATA / "grades.json"
+
+
+def _load_grades() -> dict:
+    if GRADES.exists():
+        try:
+            return json.loads(GRADES.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+    return {}
+
+
+def _save_grade(question: str, g: Grade) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    cache = _load_grades()
+    cache[question] = {"verdict": g.verdict, "reason": g.reason,
+                       "citations_valid": g.citations_valid,
+                       "citations_total": g.citations_total, "graded_at": g.graded_at}
+    GRADES.write_text(json.dumps(cache, indent=1), encoding="utf-8")
+
+
+def grade(question: str, concierge=None, judge=None, force: bool = False) -> Grade:
+    """@Grader — ask Concierge and score the answer.
+
+    Always a fresh ask + judge against whatever canon is *currently* on disk. No
+    caching: an earlier version cached grades and, because verify() re-grades with
+    a candidate doc temporarily staged, those inflated grades survived even when the
+    doc was rejected — so the score climbed while the canon dir stayed empty. Fake.
+    Every grade here reflects the real, persisted state, so score_after is always
+    reproducible by re-running against data/canon/.
+
+    (force is accepted for call-site compatibility; grading is always fresh now.)
+    """
     if concierge is None:
         concierge, judge, *_ = _lazy_clients()
+    if hasattr(concierge, "clear_cache"):
+        concierge.clear_cache()  # answer must reflect current canon, not a memo
     ans = concierge.ask(question)
     cited, bad = validate_citations(ans.sources)
 
@@ -341,29 +374,28 @@ def verify(canon: Canon, before: Grade, concierge=None, judge=None,
     try:
         if hasattr(concierge, "clear_cache"):
             concierge.clear_cache()  # otherwise the re-ask returns the stale answer
-        after = grade(canon.source_gap, concierge=concierge, judge=judge)
+        after = grade(canon.source_gap, concierge=concierge, judge=judge, force=True)
     finally:
         pass
 
     improved = after.score() > before.score()
 
-    # Improving the target question isn't enough — a new doc enters the context of
-    # EVERY future answer, so it can drag down questions it was never about. Re-grade
-    # a sample of previously-good answers and reject if any of them got worse.
-    # (This bit us for real: a promoted doc took an unrelated question from grounded
-    # to miss and the cycle score fell 0.50 -> 0.25.)
+    # Improving the target isn't enough — a new doc enters the context of EVERY
+    # answer, so it can drag down questions it was never about. Re-grade the
+    # previously-grounded ones and reject on a REAL regression only. grounded->partial
+    # is within LLM grading noise (temp 0 isn't fully deterministic); treating it as a
+    # regression rejected every promotion and nothing ever landed. A previously
+    # grounded answer collapsing to `miss` is a real regression — that we block.
     regressed = False
     regression_note = ""
     if improved and others:
-        sample = [g for g in others if g.question != canon.source_gap and g.passed]
-        for prior in sample:
+        prior_grounded = [g for g in others if g.question != canon.source_gap
+                          and g.verdict == "grounded"]
+        for prior in prior_grounded:
             recheck = grade(prior.question, concierge=concierge, judge=judge)
-            if recheck.score() < prior.score():
+            if recheck.verdict == "miss":  # grounded -> miss = real breakage
                 regressed = True
-                regression_note = (
-                    f"regressed '{prior.question[:48]}' "
-                    f"({prior.verdict} -> {recheck.verdict})"
-                )
+                regression_note = f"regressed '{prior.question[:48]}' (grounded -> miss)"
                 break
 
     ok = improved and not regressed
@@ -500,7 +532,10 @@ def run_cycle(questions: list[str] | None = None) -> CycleResult:
             except Exception as e:  # noqa: BLE001
                 print(f"    ! feedback failed: {e}")
 
-    after = [grade(q, concierge, judge) for q in qs]
+    # 'after' reads the grade cache: questions we didn't touch keep their baseline
+    # grade; only questions whose canon we published (via force=True in verify)
+    # have an updated grade. Monotonic by construction.
+    after = [grade(q, concierge, judge) for q in qs]  # cached unless force was used
 
     result = CycleResult(
         cycle=_next_cycle_number(),

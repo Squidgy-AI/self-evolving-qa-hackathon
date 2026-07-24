@@ -146,7 +146,10 @@ class ReplayQA:
         if status:
             params["status"] = status
         data = self._request("GET", f"/projects/{project_id}/bugs", params=params)
-        raw_bugs = data if isinstance(data, list) else (data.get("bugs") or data.get("data") or [])
+        # Live response wraps them in "items" (verified against a real scan).
+        raw_bugs = data if isinstance(data, list) else (
+            data.get("items") or data.get("bugs") or data.get("data") or []
+        )
         out = []
         for b in raw_bugs:
             rec_id = b.get("replay_recording_id")
