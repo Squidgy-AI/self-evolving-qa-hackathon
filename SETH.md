@@ -95,8 +95,8 @@ No env vars needed — dashboard just reads `data/runs.jsonl`.
 ## 🔑 API Keys Status
 
 ### Configured in .env
-- ✅ `REPLAY_API_KEY=lqa_be367796cc52f76078547ec89f18ba02da73bda681016cf7`
-- ✅ `BAND_USER_API_KEY=band_u_1784918107_6ivcbkErvnZJvwsLYnFlPIEOkKB7ierQ`
+- ✅ `REPLAY_API_KEY=lqa_***REDACTED***`
+- ✅ `BAND_USER_API_KEY=band_u_***REDACTED***`
 - ✅ `TARGET_REPO=/Users/somasekharaddakula/Git/fastapi` (configured for local clone)
 
 ### Still Needed (Critical Path)

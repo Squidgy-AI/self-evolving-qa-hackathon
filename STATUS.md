@@ -194,7 +194,7 @@ healthCheckPath: /health
 ## 🔑 API Keys Needed
 
 **CRITICAL PATH** (must have before demo):
-- [x] `BAND_USER_API_KEY` - Already have: `band_u_1784918107_...`
+- [x] `BAND_USER_API_KEY` - Already have: `band_u_***REDACTED***`
 - [ ] `GEMINI_API_KEY` - Get at https://aistudio.google.com/app/apikey (60 seconds, free)
 - [ ] `PIONEER_API_KEY` - Get at https://agent.pioneer.ai (code: `HACKATHONSF0724`)
 - [ ] `DEEPWIKI_API_KEY` - Ask Hardeep or check Render env vars

@@ -9,7 +9,7 @@
 
 ### Successfully Added
 - ✅ **GEMINI_API_KEY**: `AIzaSy...` (FREE tier)
-- ✅ **PIONEER_API_KEY**: `pio_sk_391...` (Pro with HACKATHONSF0724)
+- ✅ **PIONEER_API_KEY**: `pio_sk_***REDACTED***` (Pro with HACKATHONSF0724)
 - ✅ **SENSO_API_KEY**: `tgr_lMLevb...` ($100 credit)
 - ✅ **REPLAY_API_KEY**: `lqa_be367...` (HACKATHON code)
 - ✅ **BAND_USER_API_KEY**: `band_u_178...` (Pro with TOKENBAND26)
