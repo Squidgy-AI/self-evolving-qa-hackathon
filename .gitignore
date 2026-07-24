@@ -2,3 +2,9 @@
 agent_config.yaml
 .venv/
 __pycache__/
+
+# engine
+data/
+local_data/
+.venv-engine/
+*.pyc
