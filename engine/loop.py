@@ -259,7 +259,8 @@ def research(gap: Gap, pioneer=None, memory=None) -> Canon | None:
 
             gc = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
             resp = gc.models.generate_content(
-                model=os.getenv("JUDGE_MODEL", "gemini-2.5-flash"), contents=prompt
+                model=os.getenv("JUDGE_MODEL", "gemini-2.5-flash"), contents=prompt,
+                config={"temperature": 0.0},
             )
             text = resp.text or None
         except Exception as e:  # noqa: BLE001
@@ -354,7 +355,7 @@ def verify(canon: Canon, before: Grade, concierge=None, judge=None,
     regressed = False
     regression_note = ""
     if improved and others:
-        sample = [g for g in others if g.question != canon.source_gap and g.passed][:3]
+        sample = [g for g in others if g.question != canon.source_gap and g.passed]
         for prior in sample:
             recheck = grade(prior.question, concierge=concierge, judge=judge)
             if recheck.score() < prior.score():

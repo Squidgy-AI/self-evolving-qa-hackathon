@@ -89,6 +89,10 @@ class Judge:
                 config={
                     "response_mime_type": "application/json",
                     "response_schema": SCHEMA,
+                    # temperature 0 so the same answer grades the same way every cycle.
+                    # Without this the judge is a random walk and the improvement curve
+                    # is noise, not signal.
+                    "temperature": 0.0,
                 },
             )
             data = json.loads(resp.text)

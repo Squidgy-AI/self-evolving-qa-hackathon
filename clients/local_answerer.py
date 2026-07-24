@@ -154,27 +154,29 @@ def _compose(question: str, context: str) -> str:
         {"role": "user", "content": user_msg},
     ]
 
-    # Prefer Pioneer, but a paywalled/erroring Pioneer must not kill the run — fall
-    # through to Gemini. (Pioneer 403s with card_required until the promo is applied.)
-    if os.getenv("PIONEER_API_KEY"):
-        from clients.pioneer_client import PioneerClient
-        client = PioneerClient()
-        try:
-            text, _ = client.chat(messages)
-            return text
-        except Exception as e:  # noqa: BLE001
-            print(f"    ! pioneer compose failed ({type(e).__name__}); falling back to Gemini")
-        finally:
-            client.close()
-
+    # The answerer is the *system being improved*, not part of the improvement engine,
+    # so it runs on a single fixed, deterministic model (Gemini @ temp 0). That keeps
+    # the improvement curve stable — Pioneer's whole point is routing across models,
+    # which would reintroduce grading noise here. Pioneer is used in the engine
+    # (research + feedback), where non-determinism is fine because verify() gates it.
     if os.getenv("GEMINI_API_KEY"):
         from google import genai
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
         resp = client.models.generate_content(
             model=os.getenv("JUDGE_MODEL", "gemini-2.5-flash"),
             contents=f"{SYSTEM_PROMPT}\n\n{user_msg}",
+            config={"temperature": 0.0},  # deterministic answers -> stable grades
         )
         return resp.text or ""
+
+    if os.getenv("PIONEER_API_KEY"):
+        from clients.pioneer_client import PioneerClient
+        client = PioneerClient()
+        try:
+            text, _ = client.chat(messages)
+            return text
+        finally:
+            client.close()
 
     # Dev stopgap so the loop is runnable before sponsor keys land. Never reached
     # once PIONEER_API_KEY or GEMINI_API_KEY is set.
