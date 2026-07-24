@@ -67,16 +67,28 @@ No slides. You drive the whole thing from the one page.
 > *self-improves* and an AI that just hallucinates new 'facts' with confidence.
 > This one can't lie to itself — unverifiable knowledge doesn't survive."
 
-## Beat 5 — the sponsors + close (2:45 → 3:00)
+## Beat 5 (optional second screen) — the BAND room
+
+If you have a second screen / can switch tabs, open the BAND room
+(`app.band.ai/chat/989029da-…`) and run `./demo_band.sh "<a fresh question>"` in a
+terminal. The four agents post the same loop as live handoffs:
+
+> "And it's not one process — it's a team. Same loop, as four agents collaborating
+> in real time: the Grader finds the miss, hands to the Researcher, who drafts the
+> doc and hands to the Verifier — who checks the citations and either ships it to the
+> Publisher or rejects it. You're watching the agents actually do it, live."
+
+## Beat 6 — the sponsors + close (2:45 → 3:00)
 
 - Switch to the metrics tab (or just say it): the pass-rate line climbing, docs
   written vs. rejected.
 
 > "Under the hood: **Gemini** is the independent fact-checker, **Pioneer** does the
 > research and gets told when it was wrong so its own model retrains on our
-> corrections, **Senso** stores the verified docs, and **Replay QA** tested this very
-> dashboard and found a bug we fixed. Five tools, one loop: a codebase tool that gets
-> permanently better every time it fails — and only keeps what it can prove."
+> corrections, **Senso** stores the verified docs, **Replay QA** tested this very
+> dashboard and found a bug we fixed, and **BAND** is where the four agents
+> collaborate. Six tools, one loop: a codebase tool that gets permanently better
+> every time it fails — and only keeps what it can prove."
 
 ---
 
