@@ -48,19 +48,36 @@ RUNS = DATA / "runs.jsonl"
 
 # Local checkout of the codebase Concierge answers questions about. Citations are
 # validated against this, so it must exist for verification to mean anything.
-TARGET_REPO = Path(os.getenv("TARGET_REPO", str(Path.home() / "Git/Squidgy/codebase-concierge")))
+TARGET_REPO = Path(
+    os.getenv("TARGET_REPO", str(Path.home() / "Git/Squidgy/squidgy_updated_backend"))
+)
 
-CITATION = re.compile(r"([\w./-]+\.(?:py|ts|tsx|js|jsx|md|json|yaml|yml|sh)):(\d+)")
+# Line number is optional: deepwiki cites `routes/subaccount_teammates.py` while the
+# researcher emits `file.py:123`. Both are checkable — a path that doesn't exist in the
+# repo is a hallucination either way, which is the guard that actually matters.
+CITATION = re.compile(r"([\w./-]+\.(?:py|ts|tsx|js|jsx|md|json|yaml|yml|sh|sql))(?::(\d+))?")
 
+# Directory names to never retrieve from. Prefix match, so `.venv-billing` and
+# `.venv` are both caught — the backend repo vendors ~2,500 site-packages files
+# and without this the retriever drowns in Stripe SDK internals.
+SKIP_PREFIXES = (".git", ".venv", "venv", "node_modules", "__pycache__", "site-packages",
+                 ".mypy_cache", ".pytest_cache", "dist", "build", ".next")
+
+
+def _skip(path: Path) -> bool:
+    return any(part.startswith(SKIP_PREFIXES) for part in path.parts)
+
+
+# Questions about squidgy_updated_backend — the live repo deepwiki indexes.
 GOLDEN = [
-    "How does the Q&A cache decide whether two questions are the same?",
-    "What happens when a sales-mode answer contains a negative capability marker?",
-    "How does the learnings curator decide whether a session contains a real learning?",
-    "Where does canon get injected into an answer, and can it be bypassed?",
-    "How are engineers auto-CC'd on an answer?",
-    "What is the TTL on a cached answer and where is it configured?",
-    "How does mode routing choose between eng, sales, marketing and support?",
-    "What happens if the Nia retrieval quota is exhausted mid-request?",
+    "How does the Facebook OAuth interceptor capture and store access tokens?",
+    "What happens when GHL automation fails — how does the retry path work?",
+    "How does the file processing service extract text from an uploaded document?",
+    "How is the semantic search endpoint implemented and which embedding model does it use?",
+    "How does the background text processor handle long-running jobs?",
+    "What is the invitation handler flow when a new user is invited?",
+    "How does the MCP CLI expose tools to agents?",
+    "How are notification records created and what schema do they use?",
 ]
 
 
@@ -124,18 +141,28 @@ def validate_citations(citations: list[str]) -> tuple[list[str], list[str]]:
         if not m:
             invalid.append(c)
             continue
-        rel, line = m.group(1), int(m.group(2))
+        rel, line_s = m.group(1), m.group(2)
         path = TARGET_REPO / rel
         if not path.is_file():
-            invalid.append(c)
+            # Try a basename match — deepwiki cites `invitation_handler.py` while the
+            # file may live deeper in the tree. Still a real existence check.
+            matches = [p for p in TARGET_REPO.rglob(Path(rel).name) if not _skip(p)]
+            if not matches:
+                invalid.append(c)
+                continue
+            path = matches[0]
+
+        if line_s is None:
+            valid.append(c)  # path-level citation: file exists, that's the check
             continue
+
         try:
             with path.open("r", encoding="utf-8", errors="ignore") as fh:
                 n = sum(1 for _ in fh)
         except OSError:
             invalid.append(c)
             continue
-        (valid if 1 <= line <= n else invalid).append(c)
+        (valid if 1 <= int(line_s) <= n else invalid).append(c)
     return valid, invalid
 
 
@@ -232,7 +259,7 @@ def _grep_repo(question: str, max_files: int = 6, span: int = 40) -> str:
         return ""
     scored: list[tuple[int, Path]] = []
     for p in TARGET_REPO.rglob("*.py"):
-        if any(part in {".git", "node_modules", ".venv", "__pycache__"} for part in p.parts):
+        if _skip(p):
             continue
         try:
             body = p.read_text(encoding="utf-8", errors="ignore").lower()
@@ -282,18 +309,46 @@ def verify(canon: Canon, before: Grade, concierge=None, judge=None,
         pass
 
     improved = after.score() > before.score()
-    if not improved:
-        _unstage_canon(path)  # reject: don't leave unverified docs in the corpus
+
+    # Improving the target question isn't enough — a new doc enters the context of
+    # EVERY future answer, so it can drag down questions it was never about. Re-grade
+    # a sample of previously-good answers and reject if any of them got worse.
+    # (This bit us for real: a promoted doc took an unrelated question from grounded
+    # to miss and the cycle score fell 0.50 -> 0.25.)
+    regressed = False
+    regression_note = ""
+    if improved and others:
+        sample = [g for g in others if g.question != canon.source_gap and g.passed][:3]
+        for prior in sample:
+            recheck = grade(prior.question, concierge=concierge, judge=judge)
+            if recheck.score() < prior.score():
+                regressed = True
+                regression_note = (
+                    f"regressed '{prior.question[:48]}' "
+                    f"({prior.verdict} -> {recheck.verdict})"
+                )
+                break
+
+    ok = improved and not regressed
+    if not ok:
+        _unstage_canon(path)  # never leave an unverified doc in the corpus
+
+    if ok:
+        reason = "score improved, no regressions"
+    elif regressed:
+        reason = f"target improved but {regression_note}"
+    else:
+        reason = f"no improvement ({before.verdict} -> {after.verdict})"
 
     return Verification(
-        ok=improved,
+        ok=ok,
         citations_valid=len(valid),
         citations_total=len(canon.citations),
         invalid=[],
-        reason=("score improved after canon was published"
-                if improved else f"no improvement ({before.verdict} -> {after.verdict})"),
+        reason=reason,
         regraded=after,
         improved=improved,
+        regressed=regressed,
     )
 
 
@@ -392,7 +447,7 @@ def run_cycle(questions: list[str] | None = None) -> CycleResult:
             recalled += 1
             print("    ~ recalled a prior fix from memory (no research needed)")
 
-        v = verify(canon, g, concierge, judge)
+        v = verify(canon, g, concierge, judge, others=before)
         r = promote(canon, v, senso=senso, memory=memory)
         if r.promoted:
             promoted += 1

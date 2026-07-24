@@ -82,16 +82,16 @@ class CycleResult:
     questions_tested: int
     passed_before: int
     passed_after: int
-    # Partial-credit score (grounded=1.0, partial=0.5, miss=0.0), averaged over the
-    # question set. Strict pass counts are lumpy — a doc that lifts miss->partial is
-    # real improvement that `passed_*` can't see. This is the honest headline metric.
-    score_before: float = 0.0
-    score_after: float = 0.0
     gaps_found: int
     canon_written: int
     canon_promoted: int
     canon_rejected: int
     recalled_from_memory: int
+    # Partial-credit score (grounded=1.0, partial=0.5, miss=0.0), averaged over the
+    # question set. Strict pass counts are lumpy — a doc that lifts miss->partial is
+    # real improvement that `passed_*` can't see. This is the honest headline metric.
+    score_before: float = 0.0
+    score_after: float = 0.0
     cost_usd: float = 0.0
     tokens: int = 0
 

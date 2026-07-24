@@ -29,9 +29,12 @@ if str(REPO_ROOT) not in sys.path:
 
 from clients.concierge_client import Answer, ConciergeClient  # noqa: E402
 
-TARGET_REPO = Path(os.getenv("TARGET_REPO", str(Path.home() / "Git/Squidgy/codebase-concierge")))
+TARGET_REPO = Path(os.getenv("TARGET_REPO", str(Path.home() / "Git/Squidgy/squidgy_updated_backend")))
 CANON_DIR = REPO_ROOT / "data" / "canon"
-SKIP_DIRS = {".git", "node_modules", ".venv", "__pycache__"}
+# Prefix match: catches .venv-billing as well as .venv. The backend repo vendors
+# ~2,500 site-packages files; without this the retriever returns Stripe internals.
+SKIP_DIRS = (".git", ".venv", "venv", "node_modules", "__pycache__", "site-packages",
+             ".mypy_cache", ".pytest_cache", "dist", "build", ".next")
 CITATION = re.compile(r"([\w./-]+\.(?:py|ts|js|md|json|ya?ml|sh)):(\d+)")
 
 HEDGE_TEXT = "I couldn't find that in the indexed codebase."
@@ -108,7 +111,7 @@ def _retrieve(target_repo: Path, question: str, max_files: int = 6, span: int = 
         return ""
     scored: list[tuple[int, Path]] = []
     for p in target_repo.rglob("*.py"):
-        if any(part in SKIP_DIRS for part in p.parts):
+        if any(part.startswith(SKIP_DIRS) for part in p.parts):
             continue
         try:
             body = p.read_text(encoding="utf-8", errors="ignore").lower()
@@ -169,10 +172,33 @@ def _compose(question: str, context: str) -> str:
     raise RuntimeError("No model backend configured — set PIONEER_API_KEY or GEMINI_API_KEY.")
 
 def get_answerer():
-    """ConciergeClient if reachable AND answering, else LocalAnswerer. Cheap
-    /healthz probe, then one real ask() bounded to ~25s; never hangs the
-    caller even if Concierge itself hangs (the probing thread is abandoned,
-    not joined, on timeout). Prints which backend was chosen and why."""
+    """Pick the Q&A backend, best first:
+
+      1. DeepWikiClient  — the live production RAG over the real Squidgy repos.
+                           No auth needed. This is what we're actually evolving.
+      2. ConciergeClient — the older service, kept as a fallback.
+      3. LocalAnswerer   — offline last resort so a demo is never blocked.
+
+    Each candidate gets a cheap health probe then one real ask() bounded to ~25s,
+    so a hung service can't hang the caller. Prints which was chosen and why.
+    """
+    try:
+        from clients.deepwiki_client import DeepWikiClient
+
+        dw = DeepWikiClient()
+        if dw.healthy():
+            # Probe with something concrete — a vague question makes any RAG hedge,
+            # and a hedge here is not evidence the service is down.
+            a = _bounded_ask(dw, "What web framework does this backend use?", 40.0)
+            if a is not None and a.text.strip():
+                print(f"[get_answerer] using DeepWikiClient ({dw.base_url})")
+                return dw
+            print("[get_answerer] deepwiki reachable but did not answer; trying next")
+        else:
+            print("[get_answerer] deepwiki not healthy; trying next")
+    except Exception as e:  # noqa: BLE001
+        print(f"[get_answerer] deepwiki unavailable ({type(e).__name__}: {e}); trying next")
+
     concierge = ConciergeClient()
     try:
         r = httpx.get(f"{concierge.base_url}/healthz", timeout=5.0)
@@ -199,6 +225,20 @@ def get_answerer():
     pool.shutdown(wait=False)
     print(f"[get_answerer] Concierge is healthy and answering at {concierge.base_url}; using ConciergeClient")
     return concierge
+
+
+def _bounded_ask(client, question: str, timeout_s: float):
+    """One ask() with a hard wall-clock bound. Returns the Answer, or None on
+    timeout/error. The worker thread is abandoned rather than joined so a hung
+    backend can never block the caller."""
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        return pool.submit(client.ask, question).result(timeout=timeout_s)
+    except Exception:  # noqa: BLE001 - timeout or transport, both mean "try next"
+        return None
+    finally:
+        pool.shutdown(wait=False)
+
 
 def smoke() -> None:
     la = LocalAnswerer()
