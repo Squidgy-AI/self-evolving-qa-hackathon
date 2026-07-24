@@ -21,13 +21,22 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: pip install -r dashboard/requirements.txt
-    startCommand: uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+    buildCommand: pip install -r requirements-engine.txt
+    startCommand: uvicorn dashboard.live:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
 
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
+      - key: ANSWERER
+        value: local
+      # Set these in the Render dashboard (Environment tab) — do NOT commit values:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PIONEER_API_KEY
+        sync: false
+      - key: SENSO_API_KEY
+        sync: false
 
       # No API keys needed for dashboard — it just reads data/runs.jsonl
       # (which gets populated by the loop running elsewhere)

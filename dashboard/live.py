@@ -201,10 +201,12 @@ button.ghost{background:#20293a;color:var(--fg)}button:disabled{opacity:.5;curso
 <p class=sub>Ask a question about any public GitHub repo. If the answer is weak, thumbs it down — the system researches the code, writes a citation-checked doc, and only keeps it if it verifiably improves the answer. Then ask again.</p>
 
 <div class=card>
-  <label>Repository (GitHub URL or owner/name — public repos)</label>
-  <input id=repo value="fastapi/fastapi">
-  <label style=margin-top:12px>Question</label>
-  <input id=q placeholder="How does FastAPI decide if a route runs in the threadpool or the event loop?">
+  <label>Repository <span class=small>(↑/↓ to choose, or Custom)</span></label>
+  <select id=repoSel onchange=onRepo()></select>
+  <input id=repoCustom class=hide style=margin-top:8px placeholder="owner/name or https://github.com/owner/name">
+  <label style=margin-top:12px>Question <span class=small>(↑/↓ to choose, or Custom)</span></label>
+  <select id=qSel></select>
+  <input id=qCustom class=hide style=margin-top:8px placeholder="Type a question about the repo">
   <div class=row style=margin-top:12px><button id=askBtn onclick=ask()>Ask</button><span id=askStatus class=spin></span></div>
 </div>
 
@@ -233,9 +235,52 @@ button.ghost{background:#20293a;color:var(--fg)}button:disabled{opacity:.5;curso
 const $=id=>document.getElementById(id);
 let cur={question:"",repo:""};
 function badge(v){return `<span class="badge ${v}">${v}</span>`}
+
+// Curated repos + questions so nothing is typed live. Questions are chosen to
+// start weak (miss/partial) so the learn step has something to fix. "Custom…"
+// reveals a free-text box for a repo you type on the day (e.g. a Squidgy repo).
+const PRESETS={
+ "fastapi/fastapi":[
+   "How does FastAPI decide whether a route handler runs in the threadpool or the event loop?",
+   "How are sub-dependencies with yield torn down when an exception is raised?",
+   "How does the OpenAPI schema deduplicate models that share a name?",
+   "How are WebSocket dependencies resolved differently from HTTP ones?",
+ ],
+ "pallets/flask":[
+   "How does Flask's application context stack get pushed and popped per request?",
+   "How does the url_map match a request to a view function?",
+   "How does Flask decide the response mimetype when a view returns a dict?",
+ ],
+ "psf/requests":[
+   "How does a Session persist cookies across redirects?",
+   "How is connection pooling implemented via urllib3 adapters?",
+   "How does requests decide the response encoding when no charset is given?",
+ ],
+ "encode/starlette":[
+   "How does the middleware stack get built and called per request?",
+   "How are background tasks run after the response is sent?",
+ ],
+};
+const REPOS=Object.keys(PRESETS).concat(["Custom…"]);
+function fill(sel,items,extra){sel.innerHTML="";items.concat(extra?[extra]:[]).forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});}
+function onRepo(){
+  const r=$('repoSel').value;
+  const custom=r==="Custom…";
+  $('repoCustom').classList.toggle('hide',!custom);
+  fill($('qSel'), custom?[]:PRESETS[r]||[], "Custom…");
+  $('qCustom').classList.add('hide');
+  $('qSel').onchange=()=>{$('qCustom').classList.toggle('hide',$('qSel').value!=="Custom…");};
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  fill($('repoSel'),REPOS); $('repoSel').value="fastapi/fastapi"; onRepo();
+});
+
 async function ask(){
-  cur.question=$('q').value.trim(); cur.repo=$('repo').value.trim();
-  if(!cur.question)return;
+  const rSel=$('repoSel').value;
+  cur.repo = rSel==="Custom…" ? $('repoCustom').value.trim() : rSel;
+  const qSel=$('qSel').value;
+  cur.question = qSel==="Custom…" ? $('qCustom').value.trim() : qSel;
+  if(!cur.question||!cur.repo)return;
   $('askBtn').disabled=true;$('askStatus').textContent='cloning + asking…';$('resultCard').classList.add('hide');
   try{
     const r=await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(cur)});
