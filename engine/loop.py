@@ -68,10 +68,12 @@ GOLDEN = [
 
 def _lazy_clients():
     """Import clients lazily so a missing key breaks one stage, not the whole module."""
-    from clients.concierge_client import ConciergeClient
     from clients.judge import Judge
+    from clients.local_answerer import get_answerer
 
-    concierge = ConciergeClient()
+    # Hosted Concierge if it's actually answering, else the local answerer over the
+    # same codebase. Same interface either way — the loop doesn't care.
+    concierge = get_answerer()
     try:
         judge = Judge()
     except Exception as e:  # noqa: BLE001
@@ -197,10 +199,16 @@ def research(gap: Gap, pioneer=None, memory=None) -> Canon | None:
         "only cite files shown above. Return markdown only."
     )
 
-    if pioneer is None:
-        return None
     try:
-        text, inference_id = pioneer.chat([{"role": "user", "content": prompt}])
+        if pioneer is not None:
+            text, _ = pioneer.chat([{"role": "user", "content": prompt}])
+        else:
+            # dev stopgap until PIONEER_API_KEY lands
+            from clients import claude_cli
+
+            if not claude_cli.available():
+                return None
+            text, _ = claude_cli.chat([{"role": "user", "content": prompt}])
     except Exception as e:  # noqa: BLE001
         print(f"    ! research failed: {e}")
         return None
@@ -262,18 +270,54 @@ def verify(canon: Canon, before: Grade, concierge=None, judge=None,
             f"{len(invalid)} citation(s) do not resolve to real lines",
         )
 
-    after = grade(canon.source_gap, concierge=concierge, judge=judge)
+    # Stage the canon where the answerer will actually read it, THEN re-ask. Without
+    # this the re-ask sees the same context as before and can never improve — the
+    # doc has to be in play for the measurement to mean anything.
+    path = _stage_canon(canon)
+    try:
+        if hasattr(concierge, "clear_cache"):
+            concierge.clear_cache()  # otherwise the re-ask returns the stale answer
+        after = grade(canon.source_gap, concierge=concierge, judge=judge)
+    finally:
+        pass
+
     improved = after.score() > before.score()
+    if not improved:
+        _unstage_canon(path)  # reject: don't leave unverified docs in the corpus
+
     return Verification(
         ok=improved,
         citations_valid=len(valid),
         citations_total=len(canon.citations),
         invalid=[],
-        reason=("score improved" if improved
-                else f"no improvement ({before.verdict} -> {after.verdict})"),
+        reason=("score improved after canon was published"
+                if improved else f"no improvement ({before.verdict} -> {after.verdict})"),
         regraded=after,
         improved=improved,
     )
+
+
+def _slug(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60] or "canon"
+
+
+def _stage_canon(canon: Canon) -> Path:
+    """Write the doc into the corpus the answerer reads."""
+    d = DATA / "canon"
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"{_slug(canon.source_gap)}.md"
+    p.write_text(
+        f"# {canon.title}\n\n_source question: {canon.source_gap}_\n\n{canon.body_md}\n",
+        encoding="utf-8",
+    )
+    return p
+
+
+def _unstage_canon(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def promote(canon: Canon, verification: Verification, senso=None, memory=None) -> PromoteResult:
@@ -373,6 +417,8 @@ def run_cycle(questions: list[str] | None = None) -> CycleResult:
         questions_tested=len(qs),
         passed_before=sum(1 for g in before if g.passed),
         passed_after=sum(1 for g in after if g.passed),
+        score_before=round(sum(g.score() for g in before) / max(1, len(before)), 4),
+        score_after=round(sum(g.score() for g in after) / max(1, len(after)), 4),
         gaps_found=len(misses),
         canon_written=written,
         canon_promoted=promoted,
@@ -380,7 +426,7 @@ def run_cycle(questions: list[str] | None = None) -> CycleResult:
         recalled_from_memory=recalled,
     )
     _append(result)
-    print(f"=== pass {result.passed_before}/{len(qs)} -> {result.passed_after}/{len(qs)}, "
+    print(f"=== score {result.score_before:.2f} -> {result.score_after:.2f} | pass {result.passed_before}/{len(qs)} -> {result.passed_after}/{len(qs)}, "
           f"{promoted} promoted, {rejected} rejected, {recalled} recalled ===\n")
     return result
 

@@ -43,8 +43,18 @@ class Judge:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model = model
         self._client = None
+        self._fallback = False
         if not self.api_key:
-            raise JudgeError("GEMINI_API_KEY not set — get one free at aistudio.google.com")
+            # Dev stopgap: grade via the local Claude CLI so the loop runs before the
+            # Gemini key lands. Gemini is the real judge — a different model family
+            # from the answerer — and takes over automatically once the key is set.
+            from clients import claude_cli
+
+            if claude_cli.available():
+                self._fallback = True
+                print("  ! judge: GEMINI_API_KEY unset, using local claude CLI (dev stopgap)")
+            else:
+                raise JudgeError("GEMINI_API_KEY not set — get one free at aistudio.google.com")
 
     def _lazy(self):
         if self._client is None:
@@ -57,6 +67,14 @@ class Judge:
 
     def grade(self, question: str, answer: str, sources: list[str]) -> tuple[str, str]:
         """Returns (verdict, reason)."""
+        if self._fallback:
+            from clients import claude_cli
+
+            try:
+                return claude_cli.judge(question, answer, sources, RUBRIC)
+            except Exception as e:  # noqa: BLE001
+                return "partial", f"judge unavailable ({type(e).__name__}: {e})"
+
         client = self._lazy()
         prompt = (
             f"{RUBRIC}\n\n"

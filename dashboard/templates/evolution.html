@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="refresh" content="{{ refresh_seconds }}" />
+<title>Self-Evolving QA — Evolution Dashboard</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:           #0d0d0d;
+    --surface:        #151513;
+    --surface-raised: #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --gridline:       #2c2c2a;
+    --border:         rgba(255, 255, 255, 0.10);
+    --series-blue:    #3987e5;
+    --series-orange:  #d95926;
+    --status-good:    #0ca30c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --page:           #f9f9f7;
+      --surface:        #fcfcfb;
+      --surface-raised: #ffffff;
+      --text-primary:   #0b0b0b;
+      --text-secondary: #52514e;
+      --muted:          #6f6e69;
+      --gridline:       #e1e0d9;
+      --border:         rgba(11, 11, 11, 0.12);
+      --series-blue:    #2a78d6;
+      --series-orange:  #eb6834;
+      --status-good:    #0ca30c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    padding: 32px clamp(16px, 4vw, 48px) 64px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  a { color: var(--series-blue); }
+  a:visited { color: var(--series-blue); }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  header h1 {
+    font-size: clamp(24px, 3vw, 34px);
+    font-weight: 700;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  header p.subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 15px;
+    max-width: 60ch;
+  }
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-good);
+    box-shadow: 0 0 0 0 rgba(12, 163, 12, 0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(12, 163, 12, 0.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(12, 163, 12, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(12, 163, 12, 0); }
+  }
+  nav.links {
+    display: flex;
+    gap: 18px;
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  nav.links a { color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--muted); }
+  nav.links a:hover { color: var(--text-primary); border-color: var(--text-primary); }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 900px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .tiles { grid-template-columns: 1fr; }
+  }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .tile .label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tile .value {
+    font-size: clamp(26px, 3vw, 36px);
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: proportional-nums;
+  }
+  .tile .value.accent-blue { color: var(--series-blue); }
+  .tile .value.accent-orange { color: var(--series-orange); }
+  .tile .value.accent-good { color: var(--status-good); }
+
+  .charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 900px) {
+    .charts { grid-template-columns: 1fr; }
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 20px 12px;
+  }
+  .chart-card h2 {
+    font-size: 16px;
+    margin: 0 0 2px;
+    font-weight: 600;
+  }
+  .chart-card .chart-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .chart-card svg { display: block; width: 100%; height: auto; }
+
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .table-card h2 { font-size: 16px; margin: 0 0 14px; font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 0 10px 10px;
+    border-bottom: 1px solid var(--gridline);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; }
+  td.cycle-cell { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .empty-state {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+  .empty-state h2 { color: var(--text-primary); margin: 0 0 10px; font-size: 20px; }
+  .empty-state p { margin: 0; font-size: 14px; }
+
+  footer {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Self-Evolving QA — Evolution Dashboard</h1>
+      <p class="subtitle">A self-evolving agent improves a production Q&amp;A system across repeated cycles — tracking pass rate, cost efficiency, and canon growth over time.</p>
+      <nav class="links">
+        <a href="/api/cycles">Raw JSON (/api/cycles)</a>
+        <a href="/healthz">Health (/healthz)</a>
+      </nav>
+    </div>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      Live — refreshes every {{ refresh_seconds }}s · {{ cycle_count }} cycle{{ "s" if cycle_count != 1 else "" }} recorded
+    </div>
+  </header>
+
+  {% if not has_data %}
+  <div class="empty-state">
+    <h2>No cycles recorded yet</h2>
+    <p>Waiting for the first evolution cycle to write to <code>data/runs.jsonl</code>. This page updates automatically — nothing to do here.</p>
+  </div>
+  {% else %}
+
+  <section class="tiles">
+    <div class="tile">
+      <div class="label">Current pass rate</div>
+      <div class="value accent-blue">{{ stats.pass_rate }}</div>
+    </div>
+    <div class="tile">
+      <div class="label">Total canon promoted</div>
+      <div class="value accent-good">{{ stats.canon_promoted }}</div>
+    </div>
+    <div class="tile">
+      <div class="label">Cost / resolved question</div>
+      <div class="value accent-orange">{{ stats.cost_per_resolved }}</div>
+    </div>
+    <div class="tile">
+      <div class="label">Memory reuse rate</div>
+      <div class="value">{{ stats.memory_reuse }}</div>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="chart-card">
+      <h2>Pass rate across cycles</h2>
+      <p class="chart-sub">passed_after / questions_tested, per cycle</p>
+      {{ chart_pass_svg | safe }}
+    </div>
+    <div class="chart-card">
+      <h2>Cost per resolved question</h2>
+      <p class="chart-sub">cost_usd / max(1, passed_after − passed_before)</p>
+      {{ chart_cost_svg | safe }}
+    </div>
+  </section>
+
+  <section class="table-card">
+    <h2>Cycle history</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Cycle</th>
+            <th>Gaps found</th>
+            <th>Promoted</th>
+            <th>Rejected</th>
+            <th>Recalled</th>
+            <th>Cost</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in cycles %}
+          <tr>
+            <td class="cycle-cell">#{{ row._cycle_disp }}</td>
+            <td class="num">{{ row._gaps_disp }}</td>
+            <td class="num">{{ row._promoted_disp }}</td>
+            <td class="num">{{ row._rejected_disp }}</td>
+            <td class="num">{{ row._recalled_disp }}</td>
+            <td class="num">{{ row._cost_disp }}</td>
+            <td class="num">{{ row._duration_disp }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% endif %}
+
+  <footer>
+    Self-evolving QA hackathon project · data source: data/runs.jsonl · this page auto-refreshes, no action needed
+  </footer>
+
+</body>
+</html>
