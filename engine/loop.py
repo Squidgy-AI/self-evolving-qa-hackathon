@@ -83,7 +83,7 @@ def set_target_repo(path: str | Path) -> None:
         pass
 
 
-# Questions about squidgy_updated_backend — the live repo deepwiki indexes.
+# Questions about <private-repo> — the live repo deepwiki indexes.
 GOLDEN = [
     # fastapi/fastapi internals — maintainer-level questions, not usage docs, so the
     # baseline genuinely misses some. Public repo: judges can verify every citation.

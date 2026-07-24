@@ -91,7 +91,7 @@ One `.env` at the repo root. Never commit it — `.env` is gitignored.
 
 ```
 # ours
-CONCIERGE_URL=https://concierge.squidgy.net
+CONCIERGE_URL=https://<your-qa-service-host>
 SKILL_API_KEY=
 
 # sponsors

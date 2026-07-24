@@ -5,10 +5,10 @@ top to bottom once, then start at "Your tasks".
 
 > ### CHANGED at 14:45 — the demo target is now `fastapi/fastapi`, not Squidgy code
 >
-> **Do not point anything at `squidgy-deepwiki-api.onrender.com` in the repo, the
+> **Do not point anything at `<your-deepwiki-host>` in the repo, the
 > demo video, or the Devpost entry.** That service has **no authentication** and
 > indexes our **private** repos — `/auth/status` returns `{"auth_required": false}`
-> and it will answer questions about `squidgy_updated_backend` to anyone who knows
+> and it will answer questions about `<private-repo>` to anyone who knows
 > the hostname. Publishing that URL would advertise it to a room full of engineers.
 > (Worth flagging to whoever owns that Render service — it's a live exposure
 > independent of this hackathon.)
@@ -25,9 +25,9 @@ top to bottom once, then start at "Your tasks".
 
 An agent that **improves a live production Q&A system without anyone touching it**.
 
-The system is **squidgy-deepwiki** (`https://concierge-deepwiki.onrender.com`) — the
-RAG service that answers questions about our real repos (`squidgy_updated_backend`,
-`squidgy_updated_ui`, `N8N-Workflows`, `squidgy-docs-hub`, `squidgy_marketing`).
+The system is **deepwiki** (`https://<your-deepwiki-host>`) — the
+RAG service that answers questions about our real repos (`<private-repo>`,
+`<private-repo>`, `<private-repo>`, `<private-repo>`, `<private-repo>`).
 
 The loop, once per cycle:
 

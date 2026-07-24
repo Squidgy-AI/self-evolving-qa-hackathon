@@ -25,7 +25,7 @@
 
 ### 2. DeepWiki Connection
 ```
-[get_answerer] using DeepWikiClient (https://squidgy-deepwiki-api.onrender.com)
+[get_answerer] using DeepWikiClient (https://<your-deepwiki-host>)
 ✓ Successfully connected to production DeepWiki API
 ✓ No authentication issues
 ```

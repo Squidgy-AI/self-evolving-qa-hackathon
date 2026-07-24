@@ -5,7 +5,7 @@ a cited answer. We drive it from outside: ask -> grade -> improve its knowledge 
 -> ask again. We never need database access, only this endpoint.
 
 Env:
-    CONCIERGE_URL   default https://concierge.squidgy.net
+    CONCIERGE_URL   default https://<your-qa-service-host>
     SKILL_API_KEY   bearer token for /skill/ask
     ADMIN_PASSWORD  optional fallback (endpoint also accepts HTTP Basic)
 """
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import httpx
 
-DEFAULT_URL = "https://concierge.squidgy.net"
+DEFAULT_URL = "https://<your-qa-service-host>"
 TIMEOUT = 90.0
 
 # Concierge hedges in recognisable ways when it doesn't know. Cheap pre-filter so we

@@ -1,12 +1,12 @@
-"""Client for squidgy-deepwiki — Squidgy's internal "Ask the codebase" RAG service.
+"""Client for deepwiki — an internal "Ask the codebase" RAG service.
 
-squidgy-deepwiki is a fork of AsyncFuncAI/deepwiki-open: point it at a GitHub
+deepwiki is a fork of AsyncFuncAI/deepwiki-open: point it at a GitHub
 repo, it clones + embeds the code, and exposes a streaming Q&A chat over the
 indexed content plus a couple of retrieval/listing endpoints.
 
 Ground truth (read directly, do not guess): local checkout at
-`squidgy-deepwiki/api/{api.py,main.py,simple_chat.py,rag.py}` (repo
-Squidgy-AI/squidgy-deepwiki). Key facts pulled from that source:
+`deepwiki/api/{api.py,main.py,simple_chat.py,rag.py}` (repo
+<org>/deepwiki). Key facts pulled from that source:
 
   POST /chat/completions/stream   (api/simple_chat.py: ChatCompletionRequest)
     Request JSON:
@@ -77,7 +77,7 @@ Auth mechanism / env vars used by THIS client:
 
 IMPORTANT — live-instance discrepancy found while building/verifying this
 client (2026-07-24): the URL specified as the "live instance"
-(https://squidgy-deepwiki-api.onrender.com) is NOT this squidgy-deepwiki FastAPI
+(https://<your-deepwiki-host>) is NOT this deepwiki FastAPI
 service. Probing it directly:
   - GET /            -> 307 redirect to /login?next=%2F
   - GET /health, /auth/status, /api/processed_projects, /api/squidgy/repos,
@@ -86,10 +86,10 @@ service. Probing it directly:
     that don't appear anywhere in this repo's FastAPI app.
   All served with `x-render-origin-server: uvicorn`, so it IS a real FastAPI
   app on Render — just a DIFFERENT one (almost certainly the separate
-  "Squidgy Concierge" MCP gateway, not squidgy-deepwiki) that happens to share
+  "Squidgy Concierge" MCP gateway, not deepwiki) that happens to share
   a similar hostname.
-  The REAL squidgy-deepwiki-api backend declared in this repo's render.yaml,
-  https://squidgy-deepwiki-api.onrender.com, matches every route in this
+  The REAL deepwiki-api backend declared in this repo's render.yaml,
+  https://<your-deepwiki-host>, matches every route in this
   source tree exactly and was verified live and unauthenticated:
     /health -> 200, /auth/status -> {"auth_required": false},
     /api/processed_projects -> real indexed-repo list,
@@ -99,8 +99,8 @@ service. Probing it directly:
     POST /chat/completions/stream (provider=openrouter, model=
       anthropic/claude-sonnet-4.6) -> a real, correct, source-cited answer.
   DEFAULT_URL below is kept at the literally-instructed
-  concierge-deepwiki.onrender.com per the brief; set DEEPWIKI_URL=
-  https://squidgy-deepwiki-api.onrender.com in .env to hit the service this
+  <your-deepwiki-host> per the brief; set DEEPWIKI_URL=
+  https://<your-deepwiki-host> in .env to hit the service this
   client was actually written against and verified working end-to-end.
 
 Install: pip install httpx
@@ -115,8 +115,8 @@ import httpx
 
 from clients.concierge_client import Answer
 
-DEFAULT_URL = "https://squidgy-deepwiki-api.onrender.com"  # see IMPORTANT note above
-DEFAULT_REPO = "https://github.com/Squidgy-AI/squidgy_updated_backend"
+DEFAULT_URL = "https://<your-deepwiki-host>"  # see IMPORTANT note above
+DEFAULT_REPO = "https://github.com/fastapi/fastapi"
 DEFAULT_PROVIDER = "openrouter"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.6"
 TIMEOUT = 120.0  # Render free/standard instances can cold-start; never infinite
@@ -156,7 +156,7 @@ class DeepWikiClient:
         return headers
 
     def ask(self, question: str, mode: str | None = None) -> Answer:
-        """Ask squidgy-deepwiki. Streams /chat/completions/stream to completion.
+        """Ask deepwiki. Streams /chat/completions/stream to completion.
 
         `mode` has no native equivalent in this API's request schema. As a
         useful mapping: any mode containing "deep" (e.g. "deep_research")
