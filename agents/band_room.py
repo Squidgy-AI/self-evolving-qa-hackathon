@@ -65,6 +65,13 @@ def main() -> None:
         print(f"{EMOJI[who]} @{who} → @{mention}: {text}")
         time.sleep(pace)
 
+    # Start from a clean slate unless told otherwise, so the demo always shows a real
+    # miss -> grounded (a previous run may have already learned this question).
+    if os.getenv("BAND_KEEP_CANON") != "1":
+        canon_dir = Path(__file__).resolve().parents[1] / "data" / "canon"
+        for f in canon_dir.glob("*.md"):
+            f.unlink()
+
     answerer = LocalAnswerer()
     judge = Judge()
 
