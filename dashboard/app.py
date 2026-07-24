@@ -370,7 +370,8 @@ def evolution(request: Request):
         "cycle_count": len(enriched),
         "refresh_seconds": 5,
     }
-    return templates.TemplateResponse("evolution.html", context)
+    # Newer Starlette requires request first: TemplateResponse(request, name, context).
+    return templates.TemplateResponse(request, "evolution.html", context)
 
 
 @app.get("/api/cycles")
