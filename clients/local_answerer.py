@@ -44,7 +44,10 @@ SYSTEM_PROMPT = (
     "your own outside knowledge. Cite every factual claim inline as "
     "`path/to/file.py:123`, using paths and line numbers exactly as they appear in "
     "the SOURCE. Prefer canon (verified documentation, marked below) over raw code "
-    "when both answer the question. If the SOURCE genuinely does not contain the "
+    "when both answer the question. When you use canon, you MUST carry its "
+    "`path/to/file.py:123` citations through into your answer verbatim — an answer "
+    "with no citations is treated as a failure, even if the prose is correct. "
+    "If the SOURCE genuinely does not contain the "
     f'answer, reply with exactly: "{HEDGE_TEXT}" and nothing else.'
 )
 
