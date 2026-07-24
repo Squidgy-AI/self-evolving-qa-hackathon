@@ -29,7 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from clients.concierge_client import Answer, ConciergeClient  # noqa: E402
 
-TARGET_REPO = Path(os.getenv("TARGET_REPO", str(Path.home() / "Git/Squidgy/squidgy_updated_backend")))
+TARGET_REPO = Path(os.getenv("TARGET_REPO", str(Path.home() / "Git/fastapi")))
 CANON_DIR = REPO_ROOT / "data" / "canon"
 # Prefix match: catches .venv-billing as well as .venv. The backend repo vendors
 # ~2,500 site-packages files; without this the retriever returns Stripe internals.

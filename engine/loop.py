@@ -49,7 +49,7 @@ RUNS = DATA / "runs.jsonl"
 # Local checkout of the codebase Concierge answers questions about. Citations are
 # validated against this, so it must exist for verification to mean anything.
 TARGET_REPO = Path(
-    os.getenv("TARGET_REPO", str(Path.home() / "Git/Squidgy/squidgy_updated_backend"))
+    os.getenv("TARGET_REPO", str(Path.home() / "Git/fastapi"))
 )
 
 # Line number is optional: deepwiki cites `routes/subaccount_teammates.py` while the
@@ -70,14 +70,16 @@ def _skip(path: Path) -> bool:
 
 # Questions about squidgy_updated_backend — the live repo deepwiki indexes.
 GOLDEN = [
-    "How does the Facebook OAuth interceptor capture and store access tokens?",
-    "What happens when GHL automation fails — how does the retry path work?",
-    "How does the file processing service extract text from an uploaded document?",
-    "How is the semantic search endpoint implemented and which embedding model does it use?",
-    "How does the background text processor handle long-running jobs?",
-    "What is the invitation handler flow when a new user is invited?",
-    "How does the MCP CLI expose tools to agents?",
-    "How are notification records created and what schema do they use?",
+    # fastapi/fastapi internals — maintainer-level questions, not usage docs, so the
+    # baseline genuinely misses some. Public repo: judges can verify every citation.
+    "How does the dependency injection cache key work within a single request?",
+    "How does FastAPI decide whether a route handler runs in the threadpool or the event loop?",
+    "How are sub-dependencies with yield torn down when an exception is raised?",
+    "How does the response model serialisation field get built and cached?",
+    "What happens to a background task if the response fails to send?",
+    "How does the router resolve a path with both a static and a parameterised match?",
+    "How are WebSocket dependencies resolved differently from HTTP ones?",
+    "How does the OpenAPI schema deduplicate models that share a name?",
 ]
 
 
@@ -132,6 +134,22 @@ def _signature(q: str) -> str:
     return " ".join(sorted(t for t in toks if t not in stop and len(t) > 1))
 
 
+_BASENAME_INDEX: dict[str, Path] | None = None
+
+
+def _basename_index() -> dict[str, Path]:
+    """basename -> first matching path, built once. Previously this was an rglob per
+    citation, which on a 1000+ file repo pegged CPU and got the process killed."""
+    global _BASENAME_INDEX
+    if _BASENAME_INDEX is None:
+        idx: dict[str, Path] = {}
+        for p in TARGET_REPO.rglob("*"):
+            if p.is_file() and not _skip(p):
+                idx.setdefault(p.name, p)
+        _BASENAME_INDEX = idx
+    return _BASENAME_INDEX
+
+
 def validate_citations(citations: list[str]) -> tuple[list[str], list[str]]:
     """Split citations into (valid, invalid). A citation is valid only if the file
     exists in TARGET_REPO and actually has that many lines."""
@@ -146,11 +164,11 @@ def validate_citations(citations: list[str]) -> tuple[list[str], list[str]]:
         if not path.is_file():
             # Try a basename match — deepwiki cites `invitation_handler.py` while the
             # file may live deeper in the tree. Still a real existence check.
-            matches = [p for p in TARGET_REPO.rglob(Path(rel).name) if not _skip(p)]
-            if not matches:
+            hit = _basename_index().get(Path(rel).name)
+            if hit is None:
                 invalid.append(c)
                 continue
-            path = matches[0]
+            path = hit
 
         if line_s is None:
             valid.append(c)  # path-level citation: file exists, that's the check
