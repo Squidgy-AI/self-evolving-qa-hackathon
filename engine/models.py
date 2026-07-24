@@ -42,6 +42,7 @@ class Gap:
     signature: str
     reason: str
     ask_count: int = 1
+    human_note: str = ""   # optional thumbs-down guidance from a human reviewer
 
 
 @dataclass

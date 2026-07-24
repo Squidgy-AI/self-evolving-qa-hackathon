@@ -68,6 +68,21 @@ def _skip(path: Path) -> bool:
     return any(part.startswith(SKIP_PREFIXES) for part in path.parts)
 
 
+def set_target_repo(path: str | Path) -> None:
+    """Point the loop at a different local checkout at runtime (for the 'ask about
+    any repo' demo). Resets the basename index so citation validation re-scans the
+    new tree. Also updates the LocalAnswerer's target so answers come from it."""
+    global TARGET_REPO, _BASENAME_INDEX
+    TARGET_REPO = Path(path)
+    _BASENAME_INDEX = None
+    os.environ["TARGET_REPO"] = str(TARGET_REPO)
+    try:
+        import clients.local_answerer as la
+        la.TARGET_REPO = TARGET_REPO
+    except Exception:  # noqa: BLE001
+        pass
+
+
 # Questions about squidgy_updated_backend — the live repo deepwiki indexes.
 GOLDEN = [
     # fastapi/fastapi internals — maintainer-level questions, not usage docs, so the
@@ -267,10 +282,21 @@ def research(gap: Gap, pioneer=None, memory=None) -> Canon | None:
     if not context:
         return None
 
+    # A human reviewer's thumbs-down note (if any) steers the research — this is the
+    # "self-evolving with optional human guidance" path. The note only guides; the
+    # citation + improvement gates still apply, so a human can't force in a bad doc.
+    guidance = ""
+    if getattr(gap, "human_note", ""):
+        guidance = (
+            f"\nA human reviewer flagged the previous answer and said:\n"
+            f"\"{gap.human_note}\"\nUse this to focus your documentation.\n"
+        )
+
     prompt = (
-        "You are documenting a codebase so a support agent can answer this question "
+        "You are documenting a codebase so a Q&A tool can answer this question "
         "correctly in future.\n\n"
-        f"QUESTION: {gap.question}\n\n"
+        f"QUESTION: {gap.question}\n"
+        f"{guidance}\n"
         f"RELEVANT SOURCE:\n{context}\n\n"
         "Write a short markdown doc that answers the question. Cite specific lines as "
         "`path/to/file.py:123`. Every claim must have a citation. Do not invent paths — "
