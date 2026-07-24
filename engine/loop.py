@@ -244,19 +244,37 @@ def research(gap: Gap, pioneer=None, memory=None) -> Canon | None:
         "only cite files shown above. Return markdown only."
     )
 
-    try:
-        if pioneer is not None:
-            text, _ = pioneer.chat([{"role": "user", "content": prompt}])
-        else:
-            # dev stopgap until PIONEER_API_KEY lands
-            from clients import claude_cli
+    msgs = [{"role": "user", "content": prompt}]
+    text = None
+    # Pioneer first (it's a sponsor tool + gives an inference_id for /feedback), but
+    # a 403/paywall must not stop us researching — fall through to Gemini, then CLI.
+    if pioneer is not None:
+        try:
+            text, _ = pioneer.chat(msgs)
+        except Exception as e:  # noqa: BLE001
+            print(f"    ! pioneer research failed ({type(e).__name__}); trying Gemini")
+    if text is None and os.getenv("GEMINI_API_KEY"):
+        try:
+            from google import genai
 
-            if not claude_cli.available():
-                return None
-            text, _ = claude_cli.chat([{"role": "user", "content": prompt}])
-    except Exception as e:  # noqa: BLE001
-        print(f"    ! research failed: {e}")
-        return None
+            gc = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+            resp = gc.models.generate_content(
+                model=os.getenv("JUDGE_MODEL", "gemini-2.5-flash"), contents=prompt
+            )
+            text = resp.text or None
+        except Exception as e:  # noqa: BLE001
+            print(f"    ! gemini research failed ({type(e).__name__}); trying CLI")
+    if text is None:
+        from clients import claude_cli
+
+        if not claude_cli.available():
+            print("    ! no research backend available")
+            return None
+        try:
+            text, _ = claude_cli.chat(msgs)
+        except Exception as e:  # noqa: BLE001
+            print(f"    ! research failed: {e}")
+            return None
 
     return Canon(
         title=gap.question[:80],

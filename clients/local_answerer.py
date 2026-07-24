@@ -117,9 +117,19 @@ def _retrieve(target_repo: Path, question: str, max_files: int = 6, span: int = 
             body = p.read_text(encoding="utf-8", errors="ignore").lower()
         except OSError:
             continue
-        score = sum(body.count(t) for t in terms)
-        if score:
-            scored.append((score, p))
+        hits = sum(body.count(t) for t in terms)
+        if not hits:
+            continue
+        # Raw hit counts just elect the biggest file. fastapi/applications.py is
+        # thousands of lines of Doc(...) prose that mentions "dependency" and
+        # "cache" constantly, so it buried dependencies/utils.py where the logic
+        # actually lives. Normalise by length, and reward files whose PATH matches
+        # the question — a question about dependencies wants dependencies/*.
+        rel_l = str(p).lower()
+        distinct = sum(1 for t in terms if t in body)          # breadth beats repetition
+        path_bonus = 1 + 0.75 * sum(1 for t in terms if t in rel_l)
+        score = (hits ** 0.5) * distinct * path_bonus / (1 + len(body) / 60000)
+        scored.append((score, p))
     scored.sort(reverse=True, key=lambda x: x[0])
 
     chunks = []
@@ -144,14 +154,18 @@ def _compose(question: str, context: str) -> str:
         {"role": "user", "content": user_msg},
     ]
 
+    # Prefer Pioneer, but a paywalled/erroring Pioneer must not kill the run — fall
+    # through to Gemini. (Pioneer 403s with card_required until the promo is applied.)
     if os.getenv("PIONEER_API_KEY"):
         from clients.pioneer_client import PioneerClient
         client = PioneerClient()
         try:
             text, _ = client.chat(messages)
+            return text
+        except Exception as e:  # noqa: BLE001
+            print(f"    ! pioneer compose failed ({type(e).__name__}); falling back to Gemini")
         finally:
             client.close()
-        return text
 
     if os.getenv("GEMINI_API_KEY"):
         from google import genai
@@ -182,6 +196,14 @@ def get_answerer():
     Each candidate gets a cheap health probe then one real ask() bounded to ~25s,
     so a hung service can't hang the caller. Prints which was chosen and why.
     """
+    # ANSWERER=local forces the local backend. Needed because deepwiki's index is
+    # scoped to a repo — pointing it at an unindexed one silently answers from the
+    # wrong codebase, which grades every question a miss.
+    forced = os.getenv("ANSWERER", "").strip().lower()
+    if forced == "local":
+        print("[get_answerer] ANSWERER=local; using LocalAnswerer")
+        return LocalAnswerer()
+
     try:
         from clients.deepwiki_client import DeepWikiClient
 
