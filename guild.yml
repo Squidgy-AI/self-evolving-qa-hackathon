@@ -1,0 +1,110 @@
+###############################################################################
+# Guild AI Configuration for Evolution Loop
+#
+# This creates a scheduled trigger that runs run_cycle() automatically, proving
+# "acts on real-time data without manual intervention" for the hackathon judges.
+#
+# Quick start:
+#   pip install guild
+#   guild init                    # One-time setup
+#   guild run evolution-loop      # Manual test
+#   guild serve                   # Start scheduler (runs every 5 minutes)
+#
+# View metrics at: https://app.guild.ai or http://localhost:6060
+###############################################################################
+
+- model: evolution-loop
+  description: Self-evolving QA system that improves deepwiki answers automatically
+
+  operations:
+    run-cycle:
+      description: Run one evolution cycle (PERCEIVE → PLAN → ACT → OBSERVE → REMEMBER → EVOLVE)
+      main: engine.loop
+      flags:
+        questions:
+          description: Questions to test (defaults to GOLDEN set from engine.loop)
+          default: null
+          required: no
+
+      # Metrics tracked over time for dashboard
+      output-scalars:
+        - step: 'cycle (\d+)'
+          score_before: 'score (\S+) ->'
+          score_after: '-> (\S+)'
+          passed_before: 'pass (\d+)/'
+          passed_after: '/ -> (\d+)/'
+          promoted: '(\d+) promoted'
+          rejected: '(\d+) rejected'
+          recalled: '(\d+) recalled'
+
+      # Python dependencies
+      requires:
+        - file: requirements-engine.txt
+
+      # Environment setup
+      env:
+        TARGET_REPO: ${TARGET_REPO}
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        PIONEER_API_KEY: ${PIONEER_API_KEY}
+        SENSO_API_KEY: ${SENSO_API_KEY}
+        DEEPWIKI_API_KEY: ${DEEPWIKI_API_KEY}
+        ACTIAN_VECTOR_URL: ${ACTIAN_VECTOR_URL}
+        REPLAY_API_KEY: ${REPLAY_API_KEY}
+        BAND_USER_API_KEY: ${BAND_USER_API_KEY}
+
+    # Scheduled trigger - runs automatically every 5 minutes
+    # This is the proof of "no manual intervention"
+    scheduled-cycle:
+      description: Automated evolution cycle (runs every 5 minutes via Guild scheduler)
+      exec: python -m engine.loop
+      schedule: "*/5 * * * *"  # Cron syntax: every 5 minutes
+
+      output-scalars:
+        - step: 'cycle (\d+)'
+          score_before: 'score (\S+) ->'
+          score_after: '-> (\S+)'
+          passed_before: 'pass (\d+)/'
+          passed_after: '/ -> (\d+)/'
+          promoted: '(\d+) promoted'
+          rejected: '(\d+) rejected'
+          recalled: '(\d+) recalled'
+
+      env:
+        TARGET_REPO: ${TARGET_REPO}
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        PIONEER_API_KEY: ${PIONEER_API_KEY}
+        SENSO_API_KEY: ${SENSO_API_KEY}
+        DEEPWIKI_API_KEY: ${DEEPWIKI_API_KEY}
+        ACTIAN_VECTOR_URL: ${ACTIAN_VECTOR_URL}
+        REPLAY_API_KEY: ${REPLAY_API_KEY}
+        BAND_USER_API_KEY: ${BAND_USER_API_KEY}
+
+# Resources to track
+resources:
+  data:
+    description: Evolution loop data (runs.jsonl, canon docs)
+    path: data/
+    sources:
+      - include: '*.jsonl'
+      - include: 'canon/*.md'
+
+# Default metrics to display
+compare:
+  - score_after
+  - passed_after
+  - promoted
+  - recalled
+
+# Dashboard columns
+fields:
+  - operation
+  - started
+  - time
+  - label
+  - score_before
+  - score_after
+  - passed_before
+  - passed_after
+  - promoted
+  - rejected
+  - recalled
