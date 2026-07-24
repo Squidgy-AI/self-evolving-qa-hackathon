@@ -1,0 +1,37 @@
+###############################################################################
+# Render Blueprint for Evolution Dashboard
+#
+# Deploys the dashboard publicly (no auth) for:
+# 1. Replay QA automated scanning
+# 2. Devpost submission (working URL required)
+# 3. Live demo (judges can follow along)
+#
+# Deploy:
+#   1. Push to GitHub
+#   2. Go to https://dashboard.render.com/blueprints
+#   3. Connect this repo
+#   4. Render auto-deploys from this file
+#
+# Dashboard will be at: https://<random-name>.onrender.com/evolution
+###############################################################################
+
+services:
+  - type: web
+    name: evolution-dashboard
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r dashboard/requirements.txt
+    startCommand: uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+
+      # No API keys needed for dashboard — it just reads data/runs.jsonl
+      # (which gets populated by the loop running elsewhere)
+
+    # Auto-deploy on push to this branch
+    autoDeploy: true
+    branch: engine/evolution-loop
