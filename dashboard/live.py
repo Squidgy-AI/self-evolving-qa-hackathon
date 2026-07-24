@@ -91,6 +91,19 @@ def healthz() -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
+@app.post("/api/reset")
+def api_reset() -> JSONResponse:
+    """Clear learned canon so questions go back to their baseline (miss). Use before
+    a fresh demo run so the before/after is real."""
+    canon = REPO_ROOT / "data" / "canon"
+    n = 0
+    if canon.is_dir():
+        for f in canon.glob("*.md"):
+            f.unlink()
+            n += 1
+    return JSONResponse({"cleared": n})
+
+
 @app.post("/api/ask")
 async def api_ask(request: Request) -> JSONResponse:
     body = await request.json()
@@ -197,7 +210,7 @@ button.ghost{background:#20293a;color:var(--fg)}button:disabled{opacity:.5;curso
 .learned{border-color:var(--ok)}.rejected{border-color:var(--bad)}
 .hide{display:none}.spin{color:var(--mut)}
 </style></head><body><div class=wrap>
-<h1>Self-Evolving QA <span class=small>· live</span></h1>
+<h1>Self-Evolving QA <span class=small>· live</span> <button class=ghost style="float:right;font-size:12px;padding:5px 10px" onclick=resetDemo()>Reset demo</button></h1>
 <p class=sub>Ask a question about any public GitHub repo. If the answer is weak, thumbs it down — the system researches the code, writes a citation-checked doc, and only keeps it if it verifiably improves the answer. Then ask again.</p>
 
 <div class=card>
@@ -241,10 +254,11 @@ function badge(v){return `<span class="badge ${v}">${v}</span>`}
 // reveals a free-text box for a repo you type on the day (e.g. a Squidgy repo).
 const PRESETS={
  "fastapi/fastapi":[
-   "How does FastAPI decide whether a route handler runs in the threadpool or the event loop?",
-   "How are sub-dependencies with yield torn down when an exception is raised?",
-   "How does the OpenAPI schema deduplicate models that share a name?",
+   // ordered most-reliable first (tested miss -> grounded); the default question
+   // is the top one, so lead the demo with it.
    "How are WebSocket dependencies resolved differently from HTTP ones?",
+   "How does the OpenAPI schema deduplicate models that share a name?",
+   "How does FastAPI decide whether a route handler runs in the threadpool or the event loop?",
  ],
  "pallets/flask":[
    "How does Flask's application context stack get pushed and popped per request?",
@@ -275,6 +289,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   fill($('repoSel'),REPOS); $('repoSel').value="fastapi/fastapi"; onRepo();
 });
 
+async function resetDemo(){
+  await fetch('/api/reset',{method:'POST'});
+  $('answerCard').classList.add('hide');$('resultCard').classList.add('hide');
+  $('askStatus').textContent='demo reset — questions are back to baseline';
+}
 async function ask(){
   const rSel=$('repoSel').value;
   cur.repo = rSel==="Custom…" ? $('repoCustom').value.trim() : rSel;
