@@ -1,7 +1,23 @@
 # Soma — start here
 
-Written 12:55 PDT. Submission is **16:30 PDT on Devpost**. Read this top to bottom
-once, then start at "Your tasks".
+Written 12:55 PDT, updated 14:45. Submission is **16:30 PDT on Devpost**. Read this
+top to bottom once, then start at "Your tasks".
+
+> ### CHANGED at 14:45 — the demo target is now `fastapi/fastapi`, not Squidgy code
+>
+> **Do not point anything at `squidgy-deepwiki-api.onrender.com` in the repo, the
+> demo video, or the Devpost entry.** That service has **no authentication** and
+> indexes our **private** repos — `/auth/status` returns `{"auth_required": false}`
+> and it will answer questions about `squidgy_updated_backend` to anyone who knows
+> the hostname. Publishing that URL would advertise it to a room full of engineers.
+> (Worth flagging to whoever owns that Render service — it's a live exposure
+> independent of this hackathon.)
+>
+> The loop now runs against a **local clone of the public `fastapi/fastapi` repo**.
+> This is also just better for judging: they can open the cited file and verify it
+> themselves. Verified working — 10/10 citations resolve to real lines.
+>
+> `git clone --depth 1 https://github.com/fastapi/fastapi.git ~/Git/fastapi`
 
 ---
 
