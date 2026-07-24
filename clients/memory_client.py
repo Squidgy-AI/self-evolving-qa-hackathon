@@ -67,6 +67,9 @@ class ExperienceMemory:
         self._genai = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         try:
             self.client = VectorAIClient(host)
+            # connect() is required before any call — without it every request
+            # fails 503 "Client is not connected".
+            self.client.connect()
             self.client.health_check()
         except Exception as e:
             raise MemoryUnavailable(
@@ -89,7 +92,10 @@ class ExperienceMemory:
 
     def ensure_collection(self) -> None:
         # VERIFY: collections.list() return shape (assumed objects with .name)
-        existing = {c.name for c in self.client.collections.list()}
+        # collections.list() returns plain collection-name strings (verified against a
+        # live container), not objects with .name.
+        existing = {c if isinstance(c, str) else getattr(c, "name", str(c))
+                    for c in self.client.collections.list()}
         if self.collection not in existing:
             self.client.collections.create(
                 self.collection,
