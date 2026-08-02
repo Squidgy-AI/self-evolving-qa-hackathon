@@ -90,11 +90,9 @@ Promote/Reject:
   │    │   • Model learns debugging patterns
   │    │
   │    └─ NOTIFY HUMANS (NO AUTO-DEPLOY!)
-  │         ├─ Send Roam Message to dev team
-  │         │
-  │         └─ OR Email to development@squidgy.ai
+  │         └─ Send Roam Message to dev team (@all)
   │
-  │              Subject: [Auto-QA] Bug Fixed: {bug_title}
+  │              Message: [Auto-QA] Bug Fixed: {bug_title}
   │
   │              Bug Report: #{id}
   │              Root Cause: {cause} ({file}:{line})
@@ -130,7 +128,7 @@ Promote/Reject:
 ### Via Roam Message (using existing Roam MCP):
 
 ```
-🐛 Bug Analysis Complete
+@all 🐛 Bug Analysis Complete
 
 **Status**: ✅ Fix verified (grounded)
 
@@ -149,15 +147,8 @@ Promote/Reject:
 Review changes and approve for staging deployment
 
 📎 Full report: /data/canon/bugs/login-button-csrf-token.md
+📸 Screenshots: {count} captured
 ```
-
-### Via Email (to development@squidgy.ai):
-
-Same content, formatted as email with:
-- Attachments: Screenshots, diff files
-- Link to full documentation
-- Test coverage report
-- Suggested PR description
 
 ---
 

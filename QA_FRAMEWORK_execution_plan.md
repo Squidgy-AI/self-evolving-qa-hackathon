@@ -91,7 +91,7 @@ BACKEND_REPO=/Users/somasekharaddakula/Git/squidgy-backend
 FRONTEND_REPO=/Users/somasekharaddakula/Git/squidgy-frontend
 CITADEL_REPO=/Users/somasekharaddakula/Git/citadel
 SQUIDGY_APP_URL=https://app.squidgy.ai
-DEV_EMAIL=development@squidgy.ai
+ROAM_ROOM_ID=development-room-id  # Roam room for notifications
 
 # Test credentials
 QA_TEST_EMAIL=qa-test@squidgy.ai
@@ -1165,11 +1165,10 @@ from qa_clients.roam_client import RoamClient
 from qa_engine.models import BugFixResult
 
 class Notifier:
-    """Send notifications via Roam and Email"""
+    """Send notifications via Roam"""
 
     def __init__(self):
         self.roam = RoamClient()
-        self.dev_email = os.environ.get("DEV_EMAIL", "development@squidgy.ai")
 
     def notify(self, result: BugFixResult):
         """Send notification about bug fix result"""
@@ -1183,7 +1182,7 @@ class Notifier:
         """Notify successful fix"""
 
         roam_message = f"""
-🐛 **Bug Analysis Complete**
+@all 🐛 **Bug Analysis Complete**
 
 **Bug ID**: #{result.bug_report.id}
 **Status**: ✅ Fix verified (grounded)
@@ -1202,18 +1201,16 @@ class Notifier:
 Review proposed changes and approve for staging deployment.
 
 📎 **Documentation**: `data/canon/bugs/{self._slug(result.bug_report.title)}.md`
+📸 **Screenshots**: {len(result.screenshots)} captured
 """
 
         self.roam.send_notification(roam_message)
-
-        # Also send email
-        self._send_email(result, roam_message)
 
     def _notify_partial(self, result: BugFixResult):
         """Notify partial/failed fix"""
 
         message = f"""
-🐛 **Bug Analysis Incomplete**
+@all 🐛 **Bug Analysis Incomplete**
 
 **Bug ID**: #{result.bug_report.id}
 **Status**: ⚠️ {result.verdict.title()}
@@ -1234,11 +1231,6 @@ Manual investigation needed.
         """Convert title to slug"""
         import re
         return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
-
-    def _send_email(self, result: BugFixResult, body: str):
-        """Send email notification (placeholder)"""
-        # Implement SMTP email sending
-        pass
 ```
 
 ---
@@ -1407,7 +1399,7 @@ if __name__ == "__main__":
         FRONTEND_REPO: ${FRONTEND_REPO}
         CITADEL_REPO: ${CITADEL_REPO}
         SQUIDGY_APP_URL: ${SQUIDGY_APP_URL}
-        DEV_EMAIL: ${DEV_EMAIL}
+        ROAM_ROOM_ID: ${ROAM_ROOM_ID}
 ```
 
 ---
